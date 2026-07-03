@@ -785,7 +785,9 @@ function(Symbols,env,return.class='xts',
            if (!is.na(obs.beg)) URL <- paste0(URL, "&observation_start=", obs.beg)
            if (!is.na(obs.end)) URL <- paste0(URL, "&observation_end=", obs.end)
 
-           obs <- fetch(URL)
+           response <- fetch(URL)
+           json <- jsonlite::fromJSON(response)
+           obs <- json$observations
            value <- obs[, "value"]
            value[value %in% c(".", "")] <- NA
            fr <- xts(as.numeric(value), as.Date(obs[, "date"]),
