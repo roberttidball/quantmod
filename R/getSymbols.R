@@ -836,6 +836,91 @@ function(Symbols,env,return.class='xts',
      return(fr)
 } #}}}
 
+# getSymbols.FXMacroData {{{
+`getSymbols.FXMacroData` <- function(Symbols, env,
+     return.class="xts", currency="USD", value.field="val",
+     api.key=Sys.getenv("FXMACRODATA_API_KEY"), limit=1000, ...) {
+     importDefaults("getSymbols.FXMacroData")
+     this.env <- environment()
+     for(var in names(list(...))) {
+        assign(var, list(...)[[var]], this.env)
+     }
+     if(!hasArg("verbose")) verbose <- FALSE
+     if(!hasArg("auto.assign")) auto.assign <- TRUE
+     if(!hasArg("warnings")) warnings <- TRUE
+     if(!hasArg("from")) from <- ""
+     if(!hasArg("to")) to <- ""
+
+     API.URL <- "https://fxmacrodata.com/api/v1/announcements"
+     returnSym <- Symbols
+     noDataSym <- NULL
+
+     parse_symbol <- function(Symbol) {
+       parts <- unlist(strsplit(Symbol, "[./:]"))
+       if(length(parts) >= 2L) {
+         list(currency=tolower(parts[[1L]]), indicator=tolower(parts[[2L]]))
+       } else {
+         list(currency=tolower(currency), indicator=tolower(Symbol))
+       }
+     }
+
+     fetch_json <- function(URL) {
+       res <- curl::curl_fetch_memory(URL)
+       txt <- rawToChar(res$content)
+       if(res$status_code != 200L) {
+         msg <- tryCatch(jsonlite::fromJSON(txt)$detail, error=function(e) NULL)
+         stop(if(is.null(msg)) paste0("FXMacroData returned HTTP ", res$status_code) else msg,
+              call.=FALSE)
+       }
+       jsonlite::fromJSON(txt)
+     }
+
+     for(i in seq_along(Symbols)) {
+       if(verbose) cat("downloading ", Symbols[[i]], " from FXMacroData.....\n\n")
+       test <- try({
+         parsed <- parse_symbol(Symbols[[i]])
+         params <- paste0("?limit=", as.integer(limit))
+         if(nzchar(api.key)) params <- paste0(params, "&api_key=", URLencode(api.key, reserved=TRUE))
+         if(nzchar(as.character(from))) params <- paste0(params, "&start_date=", URLencode(as.character(from), reserved=TRUE))
+         if(nzchar(as.character(to))) params <- paste0(params, "&end_date=", URLencode(as.character(to), reserved=TRUE))
+         URL <- paste(API.URL, parsed$currency, parsed$indicator, sep="/")
+         fxmd <- fetch_json(paste0(URL, params))
+         rows <- fxmd$data
+         if(is.null(rows) || NROW(rows) < 1L)
+           stop("FXMacroData returned no rows", call.=FALSE)
+         rows <- utils::head(rows, as.integer(limit))
+         if(!value.field %in% colnames(rows))
+           stop(paste0("FXMacroData response does not contain value field ", dQuote(value.field)),
+                call.=FALSE)
+         date.field <- if("date" %in% colnames(rows)) "date" else "announcement_datetime_local"
+         fr <- xts(as.numeric(rows[[value.field]]), as.Date(rows[[date.field]]),
+                   src="FXMacroData", updated=Sys.time())
+         fr <- fr[order(index(fr))]
+         colnames(fr) <- as.character(toupper(Symbols[[i]]))
+         fr <- fr[paste(from, to, sep="/")]
+         fr <- convert.time.series(fr=fr, return.class=return.class)
+         Symbols[[i]] <- toupper(gsub("[^[:alnum:]_]", "_", Symbols[[i]]))
+         if(auto.assign)
+           assign(Symbols[[i]], fr, env)
+         if(verbose) cat("done.\n")
+       }, silent=TRUE)
+       if(inherits(test, "try-error")) {
+         msg <- paste0("Unable to import ", dQuote(returnSym[[i]]),
+                       " from FXMacroData.\n", attr(test, "condition")$message)
+         if(hasArg(".has1sym.") && match.call(expand.dots=TRUE)$.has1sym.) {
+           stop(msg)
+         }
+         if(isTRUE(warnings)) {
+           warning(msg, call.=FALSE, immediate.=TRUE)
+         }
+         noDataSym <- c(noDataSym, returnSym[[i]])
+       }
+     }
+     if(auto.assign)
+       return(setdiff(returnSym, noDataSym))
+     return(fr)
+} #}}}
+
 "getSymbols.cache" <- function() {}
 
 # getFX {{{
