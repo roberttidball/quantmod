@@ -851,7 +851,7 @@ function(Symbols,env,return.class='xts',
      if(!hasArg("from")) from <- ""
      if(!hasArg("to")) to <- ""
 
-     API.URL <- "https://fxmacrodata.com/api/v1/announcements"
+     API.URL <- "https://api.fxmacrodata.com/v1/announcements"
      returnSym <- Symbols
      noDataSym <- NULL
 
