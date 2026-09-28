@@ -30,8 +30,8 @@ getSymbols.FXMacroData(Symbols, env, return.class = "xts",
 The source calls
 \url{https://api.fxmacrodata.com/v1/announcements/\{currency\}/\{indicator\}}
 and converts the \code{data} array to a dated \code{xts} series. Authentication
-is optional for public USD macro series; when provided, the API key is passed as
-the \code{api_key} query parameter.
+is optional for public USD macro series; when provided, the API key is sent in
+the \code{X-API-Key} request header.
 }
 \value{
 If \code{auto.assign = TRUE}, the loaded symbol names are returned invisibly and

@@ -865,7 +865,9 @@ function(Symbols,env,return.class='xts',
      }
 
      fetch_json <- function(URL) {
-       res <- curl::curl_fetch_memory(URL)
+       h <- curl::new_handle()
+       if(nzchar(api.key)) curl::handle_setheaders(h, "X-API-Key"=api.key)
+       res <- curl::curl_fetch_memory(URL, handle=h)
        txt <- rawToChar(res$content)
        if(res$status_code != 200L) {
          msg <- tryCatch(jsonlite::fromJSON(txt)$detail, error=function(e) NULL)
@@ -880,7 +882,6 @@ function(Symbols,env,return.class='xts',
        test <- try({
          parsed <- parse_symbol(Symbols[[i]])
          params <- paste0("?limit=", as.integer(limit))
-         if(nzchar(api.key)) params <- paste0(params, "&api_key=", URLencode(api.key, reserved=TRUE))
          if(nzchar(as.character(from))) params <- paste0(params, "&start_date=", URLencode(as.character(from), reserved=TRUE))
          if(nzchar(as.character(to))) params <- paste0(params, "&end_date=", URLencode(as.character(to), reserved=TRUE))
          URL <- paste(API.URL, parsed$currency, parsed$indicator, sep="/")
