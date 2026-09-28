@@ -881,20 +881,37 @@ function(Symbols,env,return.class='xts',
        if(verbose) cat("downloading ", Symbols[[i]], " from FXMacroData.....\n\n")
        test <- try({
          parsed <- parse_symbol(Symbols[[i]])
-         params <- paste0("?limit=", as.integer(limit))
+         # the API returns at most 100 rows per request (newest first),
+         # so page with offset until 'limit' rows or the end of the window
+         max.rows <- as.integer(limit)
+         params <- paste0("?limit=", min(max.rows, 100L))
          if(nzchar(as.character(from))) params <- paste0(params, "&start_date=", URLencode(as.character(from), reserved=TRUE))
          if(nzchar(as.character(to))) params <- paste0(params, "&end_date=", URLencode(as.character(to), reserved=TRUE))
          URL <- paste(API.URL, parsed$currency, parsed$indicator, sep="/")
-         fxmd <- fetch_json(paste0(URL, params))
-         rows <- fxmd$data
-         if(is.null(rows) || NROW(rows) < 1L)
+         offset <- 0L
+         dates <- character(0)
+         vals <- numeric(0)
+         repeat {
+           fxmd <- fetch_json(paste0(URL, params, "&offset=", offset))
+           rows <- fxmd$data
+           if(is.null(rows) || NROW(rows) < 1L)
+             break
+           if(!value.field %in% colnames(rows))
+             stop(paste0("FXMacroData response does not contain value field ", dQuote(value.field)),
+                  call.=FALSE)
+           date.field <- if("date" %in% colnames(rows)) "date" else "announcement_datetime_local"
+           dates <- c(dates, as.character(rows[[date.field]]))
+           vals <- c(vals, as.numeric(rows[[value.field]]))
+           pg <- fxmd$pagination
+           if(length(vals) >= max.rows || is.null(pg) || !isTRUE(pg$has_more))
+             break
+           offset <- if(is.null(pg$next_offset)) offset + NROW(rows) else as.integer(pg$next_offset)
+         }
+         if(length(vals) < 1L)
            stop("FXMacroData returned no rows", call.=FALSE)
-         rows <- utils::head(rows, as.integer(limit))
-         if(!value.field %in% colnames(rows))
-           stop(paste0("FXMacroData response does not contain value field ", dQuote(value.field)),
-                call.=FALSE)
-         date.field <- if("date" %in% colnames(rows)) "date" else "announcement_datetime_local"
-         fr <- xts(as.numeric(rows[[value.field]]), as.Date(rows[[date.field]]),
+         dates <- utils::head(dates, max.rows)
+         vals <- utils::head(vals, max.rows)
+         fr <- xts(vals, as.Date(dates),
                    src="FXMacroData", updated=Sys.time())
          fr <- fr[order(index(fr))]
          colnames(fr) <- as.character(toupper(Symbols[[i]]))

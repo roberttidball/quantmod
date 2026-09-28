@@ -22,7 +22,8 @@ getSymbols.FXMacroData(Symbols, env, return.class = "xts",
   \code{"val"} or \code{"val_mom"}.}
   \item{api.key}{optional FXMacroData API key. Defaults to the
   \code{FXMACRODATA_API_KEY} environment variable.}
-  \item{limit}{maximum rows requested from FXMacroData.}
+  \item{limit}{maximum number of observations to download. Requests are paged
+  100 rows at a time.}
   \item{\dots}{additional arguments, including \code{from}, \code{to},
   \code{auto.assign}, \code{verbose}, and \code{warnings}.}
 }
